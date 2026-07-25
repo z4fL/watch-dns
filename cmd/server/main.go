@@ -6,6 +6,7 @@ import (
 
 	"github.com/z4fL/watch-dns/internal/config"
 	"github.com/z4fL/watch-dns/internal/database"
+	"github.com/z4fL/watch-dns/migrations"
 )
 
 func main() {
@@ -23,7 +24,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	_ = db
+	if err := migrations.AutoMigrate(db); err != nil {
+		logger.Error("failed to migrate models", "error", err)
+	}
 
 	// database.Connect(cfg.Database)
 	// nextdns.NewClient(cfg.NextDNS)
