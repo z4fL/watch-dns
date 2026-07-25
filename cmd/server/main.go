@@ -5,23 +5,25 @@ import (
 	"os"
 
 	"github.com/z4fL/watch-dns/internal/config"
+	"github.com/z4fL/watch-dns/internal/database"
 )
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	db, err := database.Connect(cfg.Database)
+	if err != nil {
+		logger.Error("failed to connect database", "error", err)
+		os.Exit(1)
+	}
 
-	logger.Info(
-		"configuration loaded",
-		"app", cfg.App.Name,
-		"env", cfg.App.Env,
-		"port", cfg.App.Port,
-	)
+	_ = db
 
 	// database.Connect(cfg.Database)
 	// nextdns.NewClient(cfg.NextDNS)
