@@ -35,4 +35,5 @@ Thumbs.db
 .env
 
 # database
+data/*.db
 *.db
