@@ -12,4 +12,5 @@ type TelegramReport struct {
 	SentAt time.Time
 
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }

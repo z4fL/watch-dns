@@ -11,4 +11,5 @@ type RuleMatch struct {
 	Score int
 
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }

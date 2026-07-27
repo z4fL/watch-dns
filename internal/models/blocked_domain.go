@@ -16,4 +16,5 @@ type BlockedDomain struct {
 	BlockedAt time.Time
 
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
