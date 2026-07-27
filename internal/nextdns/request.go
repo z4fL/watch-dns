@@ -11,54 +11,84 @@ import (
 	"strings"
 )
 
-func (c *Client) do(
+func (c *Client) newRequest(
 	ctx context.Context,
-	method,
+	method string,
 	path string,
 	query url.Values,
-	body any, out any,
-) error {
+	body any,
+) (*http.Request, error) {
 	var reader io.Reader
 
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("marshal reqeust body: %w", err)
+			return nil, fmt.Errorf("marshal request body: %w", err)
 		}
 
 		reader = bytes.NewReader(b)
 	}
 
-	url := strings.TrimRight(c.baseUrl, "/") + path
+	u := strings.TrimRight(c.baseUrl, "/") + path
+
 	if len(query) > 0 {
-		url += "?" + query.Encode()
+		u += "?" + query.Encode()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, reader)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		method,
+		u,
+		reader,
+	)
 	if err != nil {
-		return fmt.Errorf("Create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("X-Api-Key", c.apiKey)
+
 	req.Header.Set("Accept", "application/json")
+
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	res, err := c.httpClient.Do(req)
+	return req, nil
+}
+
+func (c *Client) do(
+	ctx context.Context,
+	method string,
+	path string,
+	query url.Values,
+	body any,
+	out any,
+) error {
+	req, err := c.newRequest(
+		ctx,
+		method,
+		path,
+		query,
+		body,
+	)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("perform request: %w", err)
 	}
+	defer resp.Body.Close()
 
-	defer res.Body.Close()
-
-	raw, err := io.ReadAll(res.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
 	}
 
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return parseAPIError(raw, res.StatusCode)
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+		return parseAPIError(raw, resp.StatusCode)
 	}
 
 	if out == nil {
@@ -70,4 +100,43 @@ func (c *Client) do(
 	}
 
 	return nil
+}
+
+func (c *Client) doStream(
+	ctx context.Context,
+	method string,
+	path string,
+	query url.Values,
+) (*http.Response, error) {
+	req, err := c.newRequest(
+		ctx,
+		method,
+		path,
+		query,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("perform stream request: %w", err)
+	}
+
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+		defer resp.Body.Close()
+
+		raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read stream error response: %w", err)
+		}
+
+		return nil, parseAPIError(raw, resp.StatusCode)
+	}
+
+	return resp, nil
 }
