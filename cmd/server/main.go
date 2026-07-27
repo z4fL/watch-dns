@@ -6,6 +6,8 @@ import (
 
 	"github.com/z4fL/watch-dns/internal/config"
 	"github.com/z4fL/watch-dns/internal/database"
+	"github.com/z4fL/watch-dns/internal/handler"
+	"github.com/z4fL/watch-dns/internal/server"
 	"github.com/z4fL/watch-dns/migrations"
 )
 
@@ -28,10 +30,20 @@ func main() {
 		logger.Error("failed to migrate models", "error", err)
 	}
 
-	// database.Connect(cfg.Database)
+	h := handler.New()
+
+	srv := server.New(
+		cfg.App,
+		h.Router(),
+	)
+
 	// nextdns.NewClient(cfg.NextDNS)
 	// telegram.NewBot(cfg.Telegram)
-	// server.Start(cfg)
 
 	logger.Info("server started", "port", cfg.App.Port)
+
+	if err := srv.Start(); err != nil {
+		logger.Error("server stopped", "error", err)
+		os.Exit(1)
+	}
 }
