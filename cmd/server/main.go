@@ -7,18 +7,19 @@ import (
 	"github.com/z4fL/watch-dns/internal/config"
 	"github.com/z4fL/watch-dns/internal/database"
 	"github.com/z4fL/watch-dns/internal/handler"
+	"github.com/z4fL/watch-dns/internal/logger"
 	"github.com/z4fL/watch-dns/internal/server"
 	"github.com/z4fL/watch-dns/migrations"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)
 		os.Exit(1)
 	}
+
+	logger := logger.New(cfg.Log)
 
 	db, err := database.Connect(cfg.Database)
 	if err != nil {
@@ -28,6 +29,7 @@ func main() {
 
 	if err := migrations.AutoMigrate(db); err != nil {
 		logger.Error("failed to migrate models", "error", err)
+		os.Exit(1)
 	}
 
 	h := handler.New()
