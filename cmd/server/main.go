@@ -37,7 +37,13 @@ func main() {
 		h.Router(),
 	)
 
-	// nextdns.NewClient(cfg.NextDNS)
+	// nextdnsClient := nextdns.New(cfg.NextDNS.APIKey)
+
+	// svc := service.New(
+	// 		db,
+	// 		nextdnsClient,
+	// 		logger,
+	// )
 	// telegram.NewBot(cfg.Telegram)
 
 	logger.Info("server started", "port", cfg.App.Port)
