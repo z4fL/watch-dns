@@ -118,14 +118,14 @@ func (s *LogStream) Close() error {
 }
 
 func parseSSEField(line string) (field, value string, ok bool) {
-	index := strings.IndexByte(line, ':')
+	before, after, ok := strings.Cut(line, ":")
 
-	if index == -1 {
+	if !ok {
 		return "", "", false
 	}
 
-	field = line[:index]
-	value = line[index+1:]
+	field = before
+	value = after
 
 	value = strings.TrimPrefix(value, " ")
 

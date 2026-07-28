@@ -23,6 +23,19 @@ type DNSLog struct {
 
 	Status string `gorm:"index"`
 
+	Reasons []DNSLogReason `gorm:"foreignKey:DNSLogID"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type DNSLogReason struct {
+	ID uint `gorm:"primaryKey"`
+
+	DNSLogID uint `gorm:"index;not null"`
+
+	ReasonID   string `gorm:"index;not null"`
+	ReasonName string
+
+	CreatedAt time.Time
 }
