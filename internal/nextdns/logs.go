@@ -13,14 +13,7 @@ import (
 	"strings"
 )
 
-type LogEntry struct {
-	Timestamp string `json:"timestamp"`
-	Domain    string `json:"domain"`
-	Root      string `json:"root,omitempty"`
-	Status    string `json:"status"`
-}
-
-type LogListResponse = Response[[]LogEntry]
+type LogListResponse = Response[[]Log]
 
 func (c *Client) GetLogs(ctx context.Context, profileID string, q LogsQuery) (*LogListResponse, error) {
 	query := q.Values()
