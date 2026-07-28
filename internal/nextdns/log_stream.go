@@ -220,3 +220,128 @@ func (c *Client) StreamLogs(
 		lastEventID: lastEventID,
 	}, nil
 }
+
+func (c *Client) StreamLogsWithReconnect(
+	ctx context.Context,
+	profileID string,
+	handler func(LogEvent) error,
+) error {
+	if profileID == "" {
+		return errors.New("profile ID is required")
+	}
+
+	if handler == nil {
+		return errors.New("log event handler is required")
+	}
+
+	var lastEventID string
+	retryDelay := initialRetryDelay
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		stream, err := c.StreamLogs(
+			ctx,
+			profileID,
+			lastEventID,
+		)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			if err := waitForRetry(ctx, retryDelay); err != nil {
+				return err
+			}
+
+			retryDelay = nextRetryDelay(retryDelay)
+			continue
+		}
+
+		retryDelay = initialRetryDelay
+
+		err = consumeLogStream(
+			ctx,
+			stream,
+			handler,
+			&lastEventID,
+		)
+
+		closeErr := stream.Close()
+
+		if err == nil {
+			err = closeErr
+		}
+
+		if err != nil && !errors.Is(err, ErrStreamDisconnected) {
+			return err
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		if err := waitForRetry(ctx, retryDelay); err != nil {
+			return err
+		}
+
+		retryDelay = nextRetryDelay(retryDelay)
+	}
+}
+
+func consumeLogStream(
+	ctx context.Context,
+	stream *LogStream,
+	handler func(LogEvent) error,
+	lastEventID *string,
+) error {
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		event, err := stream.Next()
+		if err != nil {
+			return err
+		}
+
+		if event.ID != "" {
+			*lastEventID = event.ID
+		}
+
+		if err := handler(event); err != nil {
+			return fmt.Errorf(
+				"handle log event: %w",
+				err,
+			)
+		}
+	}
+}
+
+func waitForRetry(
+	ctx context.Context,
+	delay time.Duration,
+) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case <-timer.C:
+		return nil
+	}
+}
+
+func nextRetryDelay(current time.Duration) time.Duration {
+	next := current * 2
+
+	if next > maxRetryDelay {
+		return maxRetryDelay
+	}
+
+	return next
+}
