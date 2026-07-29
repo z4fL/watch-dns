@@ -11,7 +11,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func New(apiKey string) *Client {
+func NewClient(apiKey string) *Client {
 	return &Client{
 		baseUrl: "https://api.nextdns.io",
 		apiKey:  apiKey,

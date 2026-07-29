@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -8,7 +9,10 @@ import (
 	"github.com/z4fL/watch-dns/internal/database"
 	"github.com/z4fL/watch-dns/internal/handler"
 	"github.com/z4fL/watch-dns/internal/logger"
+	"github.com/z4fL/watch-dns/internal/nextdns"
+	"github.com/z4fL/watch-dns/internal/repository"
 	"github.com/z4fL/watch-dns/internal/server"
+	"github.com/z4fL/watch-dns/internal/service"
 	"github.com/z4fL/watch-dns/migrations"
 )
 
@@ -32,21 +36,53 @@ func main() {
 		os.Exit(1)
 	}
 
+	dnsLogRepo := repository.NewDNSLogRepository(db)
+	dnsLogService := service.NewDNSLogService(
+		dnsLogRepo,
+	)
+
+	nextDNSClient := nextdns.NewClient(
+		cfg.NextDNS.APIKey,
+	)
+
+	ctx := context.Background()
+
+	go func() {
+
+		logger.Info("starting DNS log stream")
+
+		if err := nextDNSClient.StreamLogsWithReconnect(
+			ctx,
+			cfg.NextDNS.ProfileID,
+			func(event nextdns.LogEvent) error {
+				if err := dnsLogService.Store(ctx, event.Data); err != nil {
+					logger.Error(
+						"failed to persist DNS log",
+						"error", err,
+						"event_id", event.ID,
+						"domain", event.Data.Domain,
+					)
+
+					return nil
+				}
+
+				return nil
+			},
+		); err != nil {
+			logger.Error(
+				"DNS log stream stopped",
+				"error", err,
+			)
+
+		}
+	}()
+
 	h := handler.New()
 
 	srv := server.New(
 		cfg.App,
 		h.Router(),
 	)
-
-	// nextdnsClient := nextdns.New(cfg.NextDNS.APIKey)
-
-	// svc := service.New(
-	// 		db,
-	// 		nextdnsClient,
-	// 		logger,
-	// )
-	// telegram.NewBot(cfg.Telegram)
 
 	logger.Info("server started", "port", cfg.App.Port)
 
