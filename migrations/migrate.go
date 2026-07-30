@@ -9,6 +9,7 @@ func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.DNSLog{},
 		&models.BlockedDomain{},
+		&models.Rule{},
 		&models.RuleMatch{},
 		&models.Setting{},
 		&models.TelegramReport{},
